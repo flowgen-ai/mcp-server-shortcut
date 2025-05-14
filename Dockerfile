@@ -1,33 +1,27 @@
-# ── Stage 1: Build Shortcut MCP server ───────────────────────
 FROM node:18-alpine AS shortcut_builder
 WORKDIR /usr/src/app
 
-# 1. Copy only package manifests
+# Install dependencies for fetching Bun
+RUN apk add --no-cache curl tar
+
+# Install Bun globally
+RUN curl -fsSL https://bun.sh/install | bash \
+    && mv /root/.bun/bin/bun /usr/local/bin/
+
+# Copy and install deps (skip prepublish)
 COPY package.json package-lock.json ./
+RUN npm install --ignore-scripts
 
-# 2. Install deps but IGNORE scripts (skip prepublish/prepare)
-RUN npm install --ignore-scripts                                   
+# Copy your code & run build with Bun
+COPY . .
+RUN npm run build   
 
-# 3. Bring in your application code
-COPY . .                                                           
-
-# 4. Run the build (this runs 'build' then 'postbuild')
-RUN npm run build                                                   
-
-# ── Stage 2: Python MCP-Proxy + Shortcut server ───────────────
+# ── Stage 2: same as above ────────────────────────────────
 FROM ghcr.io/sparfenyuk/mcp-proxy:latest
 WORKDIR /app
-
-# Install Node to run the JS bundle
-RUN apk update && apk add --no-cache nodejs npm                   
-
-# Copy the built server and its dependencies
+RUN apk update && apk add --no-cache nodejs npm
 COPY --from=shortcut_builder /usr/src/app/dist    ./dist
 COPY --from=shortcut_builder /usr/src/app/node_modules ./node_modules
 COPY --from=shortcut_builder /usr/src/app/package.json ./
-
-# Expose the same SSE port
 EXPOSE 3001
-
-# Start MCP-Proxy (SSE→stdio) then launch the Shortcut MCP server
 ENTRYPOINT ["mcp-proxy","--pass-environment","--sse-port","3001","--sse-host","0.0.0.0","--","node","dist/index.js"]
