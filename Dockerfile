@@ -2,11 +2,13 @@
 FROM node:18-alpine AS shortcut_builder
 WORKDIR /usr/src/app
 
-# Install dependencies
+# Copy manifests (package.json, and package-lock.json if you add one later)
 COPY package*.json ./
-RUN npm ci
 
-# Build TS → JS
+# Install all dependencies (creates node_modules and a lockfile if missing)
+RUN npm install
+
+# Copy source and build
 COPY . .
 RUN npm run build
 
@@ -14,15 +16,15 @@ RUN npm run build
 FROM ghcr.io/sparfenyuk/mcp-proxy:latest
 WORKDIR /app
 
-# Install node so we can run the JS bundle
+# Install Node so we can run the JS bundle
 RUN apk update && apk add --no-cache nodejs npm
 
-# Copy over the built server and its node_modules
+# Copy built server and its dependencies
 COPY --from=shortcut_builder /usr/src/app/dist ./dist
 COPY --from=shortcut_builder /usr/src/app/node_modules ./node_modules
 COPY --from=shortcut_builder /usr/src/app/package.json ./
 
-# Expose the SSE port (same as before)
+# Expose the same SSE port
 EXPOSE 3001
 
 # Start MCP-Proxy (SSE→stdio) then launch the Shortcut MCP server
