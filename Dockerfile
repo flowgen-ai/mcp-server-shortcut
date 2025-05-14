@@ -26,11 +26,4 @@ COPY --from=shortcut_builder /usr/src/app/package.json ./
 EXPOSE 3001
 
 # Start MCP-Proxy (SSE→stdio) then launch the Shortcut MCP server
-ENTRYPOINT [
-  "mcp-proxy",
-    "--pass-environment",
-    "--sse-port", "3001",
-    "--sse-host", "0.0.0.0",
-  "--",
-  "node", "dist/index.js"
-]
+ENTRYPOINT ["mcp-proxy","--pass-environment","--sse-port","3001","--sse-host","0.0.0.0","--","node","dist/index.js"]
